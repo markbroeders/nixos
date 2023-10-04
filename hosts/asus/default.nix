@@ -24,13 +24,19 @@
 		../../modules/office.nix
 		];
 
-# Bootloader.
+	# Bootloader.
 	boot.loader.systemd-boot.enable = true;
 	boot.loader.efi.canTouchEfiVariables = true;
 
 	networking.hostName = "wheeler"; # Define your hostname.
 	networking.networkmanager.enable = true;
 
+	# Touchpad configuration
+	environment.systemPackages = [
+		pkgs.libinput-gestures
+		pkgs.xdotool
+		pkgs.wmctrl
+	];
 
 	services.xserver.libinput.touchpad = {
 		naturalScrolling = true;

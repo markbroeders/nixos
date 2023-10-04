@@ -41,6 +41,7 @@
 # plain files is through 'home.file'.
 	home.file = {
 		".dwm/autostart.sh".source = ../dotfiles/autostart.sh;
+		".config/libinput-gestures.conf".source = ../dotfiles/libinput-gestures.conf;
 	};
 
 	home.sessionVariables = {

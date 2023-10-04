@@ -1,6 +1,4 @@
 #!/bin/sh
-#
-
 
 get_vol() {
 	echo $(wpctl get-volume @DEFAULT_AUDIO_SINK@ | tail -c 3)
@@ -36,12 +34,14 @@ while true; do
 	sleep 1m;    # Update time every minute
 done &
 
+# Bluetooth applet
 blueman-applet &
+
+# Networkmanager applet (disabled for now)
 # nm-applet &
 
 # Set wallpaper
 feh --bg-scale ~/Pictures/background.jpg &
 
-# Set transparency
-# picom -b &
-#
+# Enable libinput-gestures for devices with touchpad only
+[ "$HOSTNAME" == "wheeler" ] && libinput-gestures &

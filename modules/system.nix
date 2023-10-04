@@ -35,7 +35,7 @@
 	users.users.mark = {
 		isNormalUser = true;
 		description = "Mark Broeders";
-		extraGroups = [ "networkmanager" "wheel" ];
+		extraGroups = [ "networkmanager" "wheel" "input" ];
 		packages = with pkgs; [
 			firefox
 		];
