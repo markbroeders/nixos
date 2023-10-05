@@ -4,6 +4,7 @@
 	programs.kitty = {
 		enable = true;
 		extraConfig = "background_opacity 0.8";
-		font.name = "Liberation Mono";
+		font.name = "FiraCode Nerd Font";
+		font.size = 12.0;
 	};
 }
