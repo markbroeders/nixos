@@ -5,7 +5,12 @@
 		enable = true;
 		shellAliases = {
 			ll = "ls -all";
-			update = "sudo nixos-rebuild switch --flake ~/nixos#wheeler";
+			update = "sudo nixos-rebuild switch --flake ~/nixos"; # No need to specify hostnames (I think)
+			# Git commands
+			gs = "git status";
+			ga = "git add";
+			gc = "git commit -m";
+			gp = "git push -u origin main";
 		};
 		enableCompletion = true;
 		enableAutosuggestions = true;
