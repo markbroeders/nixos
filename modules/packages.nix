@@ -29,6 +29,7 @@
     nil
     prettier
     python312
+    python312Packages.pip
     python312Packages.python-lsp-server # pylsp
     marksman # Markdown LSP
   ];
