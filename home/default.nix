@@ -12,6 +12,7 @@
   imports = [
     ./shell.nix
     ./programming.nix
+    # ./espanso.nix    # TODO: NOT WORKING ATM
   ];
 
   # The home.packages option allows you to install Nix packages into your
