@@ -20,7 +20,7 @@
     ../../modules/fonts.nix
   ];
 
-  # Define a user account. Don't forget to set a password with ‘passwd’.
+  # Define a user account.
   users.users.mark = {
     isNormalUser = true;
     description = "Mark Broeders";

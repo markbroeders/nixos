@@ -15,11 +15,7 @@
     # ./espanso.nix    # TODO: NOT WORKING ATM
   ];
 
-  # The home.packages option allows you to install Nix packages into your
-  # environment.
-  # home.packages = with pkgs; [
-  # ];
-
+  # Add custom config files for Kitty and Wofi
   home.file = {
     ".config/wofi" = {
       source = config.lib.file.mkOutOfStoreSymlink ./config/wofi;
