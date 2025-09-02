@@ -23,6 +23,9 @@
     ".config/kitty" = {
       source = config.lib.file.mkOutOfStoreSymlink ./config/kitty;
     };
+    ".config/moxide" = {
+      source = config.lib.file.mkOutOfStoreSymlink ./config/moxide;
+    };
   };
 
   # Let Home Manager install and manage itself.

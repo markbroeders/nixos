@@ -41,7 +41,7 @@
     text-width = 120
     soft-wrap.enable = true
     soft-wrap.wrap-at-text-width = true
-    language-servers = [ "marksman" ]
+    language-servers = [ "marksman", "markdown-oxide" ]
     formatter = { command = 'prettier', args = [
       "--parser",
       "markdown",
