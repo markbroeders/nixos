@@ -21,6 +21,7 @@
     hunspellDicts.en_US
     spotify
     obsidian
+    zotero
 
     # Libraries
     hplip
@@ -28,10 +29,13 @@
     # Language servers
     nil
     prettier
-    python312
+    python312Full
     python312Packages.pip
     python312Packages.python-lsp-server # pylsp
     marksman # Markdown LSP
+    markdown-oxide # Task management in Helix
+
+    python312Packages.tkinter
   ];
 
   # ZSH as shell
