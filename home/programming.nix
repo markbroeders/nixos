@@ -26,6 +26,9 @@
       [keys.normal."C-c".o]
       c = ":open ~/.config/"              # Open configuration directory
       n = ":open ~/Documenten/Notes/"     # Open Notes directory
+      [keys.normal."C-c".t]
+      o = ":open ~/Documenten/Notes/TODO.md" # Open TODO file
+      t = ":sh ~/.config/scripts/add_todo.py"
       [keys.normal."C-c"]
       j = ":sh kitty -e python ~/.config/scripts/journal.py"
     '';
