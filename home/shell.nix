@@ -12,10 +12,12 @@
       gc = "git commit -m";
       gp = "git push -u origin main";
       # System
-      # Nixos Flake Update
-      nfu = " sudo nixos-rebuild switch --flake /home/mark/nixos#wheeler";
+      # Nixos Flake Switch (to new config)
+      nfs = " sudo nixos-rebuild switch --flake /home/mark/nixos#wheeler";
       # Nixos Package Add
       npa = "hx ~/nixos/modules/packages.nix";
+      # Nixos garbage collect (remove old generations)
+      ngc = "sudo nix-collect-garbage -d";
     };
     enableCompletion = true;
     autosuggestion = {

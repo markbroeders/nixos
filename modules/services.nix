@@ -27,6 +27,9 @@
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
 
+  # Install Flatpak
+  services.flatpak.enable = true;
+
   services.syncthing = {
     enable = true;
     user = "mark";
