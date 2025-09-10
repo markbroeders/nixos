@@ -51,4 +51,7 @@
     enable = true;
     enableSSHSupport = true;
   };
+
+   virtualisation.virtualbox.host.enable = true;
+   users.extraGroups.vboxusers.members = [ "mark" ];
 }
