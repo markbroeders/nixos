@@ -1,0 +1,40 @@
+{
+  description = "My NixOS Flake";
+  inputs = {
+    # Official NixOS package source, using nixos-unstable branch here
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
+    # home-manager, used for managing user configuration
+    home-manager = {
+      url = "github:nix-community/home-manager/master";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+  outputs =
+    {
+      self,
+      nixpkgs,
+      claude-code-nix,
+      home-manager,
+      ...
+    }@inputs:
+    {
+      nixosConfigurations = {
+        wheeler = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { inherit inputs; };   # <-- add this
+          modules = [
+            ./hosts/asus
+            # make home-manager as a module of nixos
+            # so that home-manager configuration will be deployed automatically when executing `nixos-rebuild switch`
+            home-manager.nixosModules.home-manager
+            {
+              # home-manager.useGlobalPkgs = true; # GIVES A WARNING, DISABLED FOR NOW
+              home-manager.useUserPackages = true;
+              home-manager.users.mark = import ./home;
+            }
+          ];
+        };
+      };
+    };
+}
