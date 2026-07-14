@@ -19,6 +19,11 @@
       ...
     }@inputs:
     {
+      templates.python = {
+        path = ./templates/python;
+        description = "Python project dev shell (nix devShell + direnv venv)";
+      };
+
       nixosConfigurations = {
         wheeler = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";

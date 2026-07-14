@@ -1,0 +1,2 @@
+# pip requirements — one package per line, e.g.:
+# Flask>=3.0.0
