@@ -14,6 +14,15 @@
   # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
+  # Automatically collect garbage weekly, keeping the last 14 days of
+  # generations, and dedupe identical store files via hardlinks.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+  nix.optimise.automatic = true;
+
   fileSystems = {
     "/".options = [ "compress=zstd" ];
     "/home".options = [ "compress=zstd" ];
