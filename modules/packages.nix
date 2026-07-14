@@ -26,17 +26,6 @@
 
     # Libraries
     hplip
-
-    # Language servers
-    # nil
-    # prettier
-    # python312Full
-    # python312Packages.pip
-    # python312Packages.python-lsp-server # pylsp
-    # marksman # Markdown LSP
-    # markdown-oxide # Task management in Helix
-
-    # python312Packages.tkinter
   ]++ [
     inputs.claude-code-nix.packages.${pkgs.system}.claude-code
   ];
@@ -54,7 +43,4 @@
     enable = true;
     enableSSHSupport = true;
   };
-
-   # virtualisation.virtualbox.host.enable = true;
-   # users.extraGroups.vboxusers.members = [ "mark" ];
 }
