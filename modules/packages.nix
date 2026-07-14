@@ -27,7 +27,7 @@
     # Libraries
     hplip
   ]++ [
-    inputs.claude-code-nix.packages.${pkgs.system}.claude-code
+    inputs.claude-code-nix.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
   ];
 
   # ZSH as shell
