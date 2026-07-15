@@ -12,12 +12,16 @@
   imports = [
     ./shell.nix
     ./programming.nix
+    ./emacs.nix
   ];
 
   # Add custom config files for Kitty
+  # Must be an absolute path string, not a relative Nix path (./config/kitty),
+  # otherwise it gets interned into the store at eval time and the symlink
+  # points at a frozen copy instead of the live repo file.
   home.file = {
     ".config/kitty" = {
-      source = config.lib.file.mkOutOfStoreSymlink ./config/kitty;
+      source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/nixos/home/config/kitty";
     };
   };
 

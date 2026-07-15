@@ -1,0 +1,1215 @@
+#+TITLE: My Emacs Configuration
+#+AUTHOR: Mark Broeders
+#+OPTIONS: toc:2
+
+* TABLE OF CONTENTS :TOC:
+- [[#introduction][INTRODUCTION]]
+- [[#basics][BASICS]]
+  - [[#package-management][Package management]]
+  - [[#window-management][Window management]]
+  - [[#sane-defaults][Sane Defaults]]
+  - [[#performance-improvements][Performance Improvements]]
+- [[#appearance][APPEARANCE]]
+  - [[#icons][Icons]]
+  - [[#theme][Theme]]
+  - [[#modeline][Modeline]]
+  - [[#fonts][Fonts]]
+  - [[#rainbow-delimiters][Rainbow Delimiters]]
+- [[#keyboard][KEYBOARD]]
+  - [[#which-key][Which Key]]
+  - [[#general][General]]
+  - [[#evil--vim-motions-everywhere][Evil / VIM motions everywhere]]
+- [[#completion-framework][COMPLETION FRAMEWORK]]
+  - [[#corfu][Corfu]]
+  - [[#vertico][Vertico]]
+  - [[#orderless][Orderless]]
+  - [[#marginalia][Marginalia]]
+  - [[#embark][Embark]]
+  - [[#consult][Consult]]
+- [[#org][ORG]]
+  - [[#general-config][General config]]
+  - [[#enabling-table-of-contents][Enabling Table of Contents]]
+  - [[#source-code-block-tag-expansion][Source Code Block Tag Expansion]]
+  - [[#appearance-1][Appearance]]
+  - [[#keywords][Keywords]]
+  - [[#agenda][Agenda]]
+  - [[#capture-templates][Capture Templates]]
+  - [[#notes][Notes]]
+  - [[#org-gcal-calendar][Org Gcal Calendar]]
+- [[#programming][PROGRAMMING]]
+  - [[#lsp-eglot][LSP (Eglot)]]
+  - [[#documentation][Documentation]]
+  - [[#syntax][Syntax]]
+  - [[#languages][Languages]]
+  - [[#version-control][Version Control]]
+  - [[#project-management][Project Management]]
+- [[#applications][APPLICATIONS]]
+  - [[#undo-tree][Undo Tree]]
+  - [[#elfeed][Elfeed]]
+
+* INTRODUCTION
+* BASICS
+** Package management
+This configuration uses Emacs' built-in package manager (=package.el=) together
+with =use-package= (built into Emacs since version 29). We point =package.el= at
+the GNU, NonGNU and MELPA archives, which between them provide essentially every
+package referenced below as a /released/ version that is compatible with the
+Emacs you are running.
+
+Setting =use-package-always-ensure= to =t= means each =(use-package ...)= form
+will install the package automatically if it is missing. Built-in packages (such
+as =org=, =eldoc=, =flymake=, =which-key= and =modus-themes= on Emacs 30) are
+marked with =:ensure nil= so they are configured but never downloaded.
+
+#+begin_src emacs-lisp
+
+  (require 'package)
+
+  ;; Package archives. MELPA carries the bulk of community packages; the GNU and
+  ;; NonGNU ELPA archives carry the rest (and are required for some dependencies).
+  (setq package-archives
+        '(("gnu"    . "https://elpa.gnu.org/packages/")
+          ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+          ("melpa"  . "https://melpa.org/packages/")))
+
+  ;; Initialise the package system.
+  (package-initialize)
+
+  ;; Refresh the archive contents the first time, so a fresh checkout can install
+  ;; everything without you having to run `package-refresh-contents' by hand.
+  (unless package-archive-contents
+    (package-refresh-contents))
+
+  ;; use-package is bundled with Emacs >= 29.
+  (require 'use-package)
+
+  ;; Install packages automatically unless a declaration says `:ensure nil'.
+  (setq use-package-always-ensure t)
+
+  ;; MELPA rebuilds its packages daily, so a cached `archive-contents' can point
+  ;; at a tarball that has since been removed -- which shows up as a 404 ("Not
+  ;; found") when installing. If an install fails, refresh the archives once and
+  ;; retry, so a stale index heals itself instead of breaking startup.
+  (defun mb/package-install-with-refresh (orig-fn pkg &rest args)
+    "Around-advice for `package-install': refresh archives once and retry on error."
+    (condition-case err
+        (apply orig-fn pkg args)
+      (error
+       (message "Installing %s failed (%s); refreshing archives and retrying..."
+                pkg (error-message-string err))
+       (package-refresh-contents)
+       (apply orig-fn pkg args))))
+  (advice-add 'package-install :around #'mb/package-install-with-refresh)
+
+#+end_src
+
+** Window management
+A small amount of window-navigation glue, and the load path for the personal
+scripts directory (used by =buffer-move= if you choose to enable it).
+
+#+begin_src emacs-lisp
+
+  (add-to-list 'load-path "~/.emacs.d/scripts/")
+
+  ;; (require 'buffer-move)   ;; Buffer-move for better window management
+
+  (global-set-key (kbd "C-c <left>")  'windmove-left)
+  (global-set-key (kbd "C-c <right>") 'windmove-right)
+  (global-set-key (kbd "C-c <up>")    'windmove-up)
+  (global-set-key (kbd "C-c <down>")  'windmove-down)
+
+#+end_src
+
+** Sane Defaults
+Here are some sane default settings, read the comments to see what they all mean or do.
+
+#+begin_src emacs-lisp
+
+  (use-package emacs
+    :ensure nil
+    :custom                                         ;; Set custom variables to configure Emacs behavior.
+    (column-number-mode t)                          ;; Display the column number in the mode line.
+    (auto-save-default nil)                         ;; Disable automatic saving of buffers.
+    (create-lockfiles nil)                          ;; Prevent the creation of lock files when editing.
+    (delete-by-moving-to-trash t)                   ;; Move deleted files to the trash instead of permanently deleting them.
+    (delete-selection-mode 1)                       ;; Enable replacing selected text with typed text.
+    (display-line-numbers-type 'relative)           ;; Use relative line numbering in programming modes.
+    (global-auto-revert-non-file-buffers t)         ;; Automatically refresh non-file buffers.
+    (history-length 25)                             ;; Set the length of the command history.
+    (inhibit-startup-message t)                     ;; Disable the startup message when Emacs launches.
+    (initial-scratch-message "")                    ;; Clear the initial message in the *scratch* buffer.
+    (ispell-dictionary "en_US")                     ;; Set the default dictionary for spell checking.
+    (make-backup-files nil)                         ;; Disable creation of backup files.
+    (pixel-scroll-precision-mode t)                 ;; Enable precise pixel scrolling.
+    (pixel-scroll-precision-use-momentum nil)       ;; Disable momentum scrolling for pixel precision.
+    (ring-bell-function 'ignore)                    ;; Disable the audible bell.
+    (split-width-threshold 300)                     ;; Prevent automatic window splitting if the window width exceeds 300 pixels.
+    (switch-to-buffer-obey-display-actions t)       ;; Make buffer switching respect display actions.
+    (tab-always-indent 'complete)                   ;; Make the TAB key complete text instead of just indenting.
+    (tab-width 4)                                   ;; Set the tab width to 4 spaces.
+    (treesit-font-lock-level 4)                     ;; Use advanced font locking for Treesit mode.
+    (truncate-lines t)                              ;; Enable line truncation to avoid wrapping long lines.
+    (use-dialog-box nil)                            ;; Disable dialog boxes in favor of minibuffer prompts.
+    (use-short-answers t)                           ;; Use short answers in prompts for quicker responses (y instead of yes)
+    (warning-minimum-level :warning)                ;; Surface real warnings (raise to :emergency to silence them).
+    (split-width-threshold 120)                     ;; Make new windows open to the right
+
+    :hook                                           ;; Add hooks to enable specific features in certain modes.
+    (prog-mode . display-line-numbers-mode)         ;; Enable line numbers in programming modes.
+
+    :config
+    ;; By default emacs gives you access to a lot of *special* buffers, while navigating with [b and ]b,
+    ;; this might be confusing for newcomers. This settings make sure ]b and [b will always load a
+    ;; file buffer. To see all buffers use <leader> SPC, <leader> b l, or <leader> b i.
+    (defun skip-these-buffers (_window buffer _bury-or-kill)
+      "Function for `switch-to-prev-buffer-skip'."
+      (string-match "\\*[^*]+\\*" (buffer-name buffer)))
+    (setq switch-to-prev-buffer-skip 'skip-these-buffers)
+
+
+
+    ;; Save manual customizations to a separate file instead of cluttering `init.el'.
+    ;; You can M-x customize, M-x customize-group, or M-x customize-themes, etc.
+    ;; The saves you do manually using the Emacs interface would overwrite this file.
+    ;; The following makes sure those customizations are in a separate file.
+    (setq custom-file (locate-user-emacs-file "custom-vars.el")) ;; Specify the custom file path.
+    (load custom-file 'noerror 'nomessage)                       ;; Load the custom file quietly, ignoring errors.
+
+    ;; Makes Emacs vertical divisor the symbol │ instead of |.
+    (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│))
+
+    :init                        ;; Initialization settings that apply before the package is loaded.
+    (tool-bar-mode -1)           ;; Disable the tool bar for a cleaner interface.
+    (menu-bar-mode -1)           ;; Disable the menu bar for a more streamlined look.
+
+    (when scroll-bar-mode
+      (scroll-bar-mode -1))      ;; Disable the scroll bar if it is active.
+
+    (global-hl-line-mode 1)      ;; Enable highlight of the current line
+    (global-auto-revert-mode 1)  ;; Enable global auto-revert mode to keep buffers up to date with their corresponding files.
+    (indent-tabs-mode -1)        ;; Disable the use of tabs for indentation (use spaces instead).
+    (recentf-mode 1)             ;; Enable tracking of recently opened files.
+    (savehist-mode 1)            ;; Enable saving of command history.
+    (save-place-mode 1)          ;; Enable saving the place in files for easier return.
+    (winner-mode 0)              ;; Enable winner mode to easily undo window configuration changes.
+    (xterm-mouse-mode 1)         ;; Enable mouse support in terminal mode.
+    (file-name-shadow-mode 1)    ;; Enable shadowing of filenames for clarity.
+
+    ;; Set the default coding system for files to UTF-8.
+    (modify-coding-system-alist 'file "" 'utf-8)
+
+    ;; Add a hook to run code after Emacs has fully initialized.
+    (add-hook 'after-init-hook
+              (lambda ()
+                (message "Emacs has fully loaded. This code runs after startup.")
+
+                ;; Insert a welcome message in the *scratch* buffer displaying loading time and activated packages.
+                (with-current-buffer (get-buffer-create "*scratch*")
+                  (insert (format
+                           ";;    Welcome to Emacs!
+  ;;
+  ;;    Loading time : %s
+  ;;    Packages     : %s
+  "
+                           (emacs-init-time)
+                           (number-to-string (length package-activated-list))))))))
+
+#+end_src
+
+** Performance Improvements
+[[https://emacs-lsp.github.io/lsp-mode/page/performance/][source]]
+
+The garbage-collection threshold is now managed in =early-init.el= (kept very
+high during startup, restored to ~100mb afterwards), so we only need to bump the
+amount of data Emacs reads from a subprocess here — the Emacs default of 4k is
+far too small for language-server responses, which are often in the 800k–3M
+range.
+
+#+begin_src emacs-lisp
+
+  ;; Increase the amount of data which Emacs reads from the process
+  (setq read-process-output-max (* 1024 1024)) ;; 1mb
+
+#+end_src
+
+* APPEARANCE
+** Icons
+This is an icon set that can be used with dashboard, dired, ibuffer and other Emacs programs.
+
+#+begin_src emacs-lisp
+(use-package all-the-icons
+  :ensure t
+  :if (display-graphic-p))
+
+(use-package all-the-icons-dired
+  :hook (dired-mode . (lambda () (all-the-icons-dired-mode t))))
+#+end_src
+
+** Theme
+Modus themes https://protesilaos.com/emacs/modus-themes#h:1af85373-7f81-4c35-af25-afcef490c111
+
+The Modus themes ship with Emacs, but on Debian they are only placed on
+=custom-theme-load-path= (so =load-theme= works) and *not* on =load-path= (so
+=(require 'modus-themes)= fails). We therefore just load the theme directly,
+rather than going through =use-package=, which would try to =require= the
+feature and error out with "Cannot load modus-themes".
+
+If you want the theme's customization API (=modus-themes-toggle=, the
+=modus-themes-*= options, palette overrides, etc.), install the standalone
+package instead — replace the =load-theme= call below with:
+=(use-package modus-themes :ensure t :config (load-theme 'modus-vivendi t))=
+
+#+begin_src emacs-lisp
+
+  ;; (load-theme 'modus-operandi t)
+  ;; (load-theme 'modus-operandi-tinted t)
+  (load-theme 'modus-vivendi t)
+
+#+end_src
+
+** Modeline
+The `doom-modeline' package provides a sleek, modern mode-line that is visually appealing and functional. It integrates well with various Emacs features, enhancing the overall user experience by displaying relevant information in a compact format.
+
+#+begin_src emacs-lisp
+
+  (use-package doom-modeline
+    :ensure t
+    :defer t
+    :custom
+    (doom-modeline-buffer-file-name-style 'buffer-name)  ;; Set the buffer file name style to just the buffer name (without path).
+    (doom-modeline-project-detection 'project)           ;; Enable project detection for displaying the project name.
+    (doom-modeline-buffer-name t)                        ;; Show the buffer name in the mode line.
+    (doom-modeline-vcs-max-length 25)                    ;; Limit the version control system (VCS) branch name length to 25 characters.
+    :config
+    (setq doom-modeline-icon t)                      ;; Enable icons in the mode line if nerd fonts are used.
+    (setq doom-modeline-icon nil)                     ;; Disable icons if nerd fonts are not being used.
+    :hook
+    (after-init . doom-modeline-mode))
+
+#+end_src
+
+** Fonts
+
+#+begin_src emacs-lisp
+
+  (set-face-attribute 'default nil :family "JetBrainsMono Nerd Font" :height 120)
+  ;; (set-face-attribute 'default nil :family "Iosevka Term Curly" :height 150))
+
+  (set-face-attribute 'variable-pitch nil :family "Iosevka" :height 100)
+  ;; (set-face-attribute 'org-modern-symbol nil :family "Iosevka")
+
+#+end_src
+
+** Rainbow Delimiters
+The `rainbow-delimiters' package provides colorful parentheses, brackets, and braces to enhance readability in programming modes. Each level of nested delimiter is assigned a different color, making it easier to match pairs visually.
+
+#+begin_src emacs-lisp
+
+  (use-package rainbow-delimiters
+    :defer t
+    :hook
+    (prog-mode . rainbow-delimiters-mode))
+
+#+end_src
+
+* KEYBOARD
+** Which Key
+`which-key' is an Emacs package that displays available keybindings in a popup window whenever you partially type a key sequence. This is particularly useful for discovering commands and shortcuts, making it easier to learn Emacs and improve your workflow. It helps users remember key combinations and reduces the cognitive load of memorizing every command.
+
+Since Emacs 30, =which-key= is part of Emacs itself, so we enable and configure
+it with =:ensure nil=.
+
+#+begin_src emacs-lisp
+
+  (use-package which-key
+    :ensure nil
+    :init
+      (which-key-mode 1)
+    :diminish
+    :config
+    (setq which-key-side-window-location 'bottom
+  	  which-key-sort-order #'which-key-key-order-alpha
+  	  which-key-allow-imprecise-window-fit nil
+  	  which-key-sort-uppercase-first nil
+  	  which-key-add-column-padding 1
+  	  which-key-max-display-columns nil
+  	  which-key-min-display-lines 6
+  	  which-key-side-window-slot -10
+  	  which-key-side-window-max-height 0.25
+  	  which-key-idle-delay 0.8
+  	  which-key-max-description-length 25
+  	  which-key-allow-imprecise-window-fit nil
+  	  which-key-separator " → " ))
+
+#+end_src
+
+** General
+[[https://github.com/noctuid/general.el][General.el]] is a fantastic package that makes it very easy to create keybindings. One of the things I enjoyed from [[https://github.com/hlissner/doom-emacs][Doom Emacs]] was the =spacebar= as =leader-key=. In this little configuration snippet, I create a function which defines my leader key. This function makes it easy to create keybindings in my config. Note that my main leader-key is =SPC=, however, for easy configuration of extra keybindings I define a second one =C-c=.
+
+#+begin_src emacs-lisp
+
+  (use-package general
+    :demand t
+    :after evil
+    :config
+
+    (general-create-definer mb/leader-key-def
+  	:keymaps '(normal insert visual emacs)
+  	:prefix "SPC"
+  	:global-prefix "C-SPC")
+
+    (general-create-definer mb/local-leader-keys
+  	:prefix "C-c")
+
+    (general-create-definer mb/programming-key-def
+  	:keymaps '(eglot-mode-map)
+  	:prefix "C-SPC")
+
+    ;; Various
+    (mb/leader-key-def
+  	"."       '(embark-act                      :which-key "Prompt for action"))
+
+    ;; Buffer Management
+    (mb/leader-key-def
+  	"b"       '(:ignore t                       :which-key "Buffer")
+  	"b i"     '(consult-buffer                  :which-key "Consult buffer list")
+  	"b b"     '(ibuffer                         :which-key "IBuffer")
+  	"b k"     '(kill-current-buffer             :which-key "Kill current buffer")
+  	"SPC"     '(consult-buffer                  :which-key "Consult buffer"))
+
+    ;; Edit files
+    (mb/leader-key-def
+  	"e"       '(:ignore t                                             :which-key "Edit files")
+  	"e c"     '((lambda () (interactive)
+  				  (find-file "~/.emacs.d/emacs.org"))                   :which-key "Emacs Config"))
+
+    ;; File Management
+    (mb/leader-key-def
+  	"f"       '(:ignore t                       :which-key "Files")
+  	"f f"     '(find-file                       :which-key "Open file")
+  	"f n"     '(org-node-find                   :which-key "Open note")
+  	"f r"     '(consult-recent-file             :which-key "Recent file"))
+
+    ;; Eglot / Programming
+    (mb/leader-key-def
+  	"g"       '(:ignore t                       :which-key "Programming")
+  	"g d"     '(mb/eglot-describe-and-jump      :which-key "Open hover doc")
+  	"g f"     '(xref-find-references            :which-key "Find references")
+  	"g r"     '(eglot-rename                    :which-key "Rename"))
+
+    (mb/leader-key-def
+  	"h"       '(:ignore t                       :which-key "Help")
+  	"h f"     '(describe-function               :which-key "Describe function")
+  	"h F"     '(describe-face                   :which-key "Describe face")
+  	"h k"     '(describe-key                    :which-key "Describe key")
+  	"h m"     '(describe-mode                   :which-key "Describe mode")
+  	"h v"     '(describe-variable               :which-key "Describe variable"))
+
+    ;; Journal
+    (mb/leader-key-def 
+  	"j"  '(:ignore t :which-key "journal"                             :which-key "Journal")
+  	"jj" '((lambda () (interactive) (org-capture nil "j"))            :which-key "New journal entry")
+  	"jo" '((lambda () (interactive) (find-file "~/org/journal.org"))  :which-key "Open journal"))
+
+    ;; Org
+    (mb/leader-key-def
+  	"o"       '(:ignore t                       :which-key "Org")
+  	"o a"     '(org-agenda                      :which-key "Agenda")
+  	"o c"     '(org-capture                     :which-key "Capture")
+  	"o l"     '(org-store-link                  :which-key "Store link")
+  	;; Notes (Denote)
+  	;; "o n"     '(org-node-global-prefix-map      :which-key "org-node menu")
+  	"o f"     '(org-node-find                   :which-key "Find/open note")
+  	;; "o s"     '(consult-denote-grep             :which-key "Search notes")
+  	"o i"     '(org-node-insert                 :which-key "Insert note link"))
+
+    (mb/leader-key-def
+  	"p"   '(:ignore t                           :which-key "Projectile")
+  	"pf"  'projectile-find-file
+  	"pp"  'projectile-switch-project
+  	"pF"  'consult-ripgrep
+  	"pd"  'projectile-dired)
+
+    ;; Searching
+    (mb/leader-key-def
+  	"s"       '(:ignore t                       :which-key "Search")
+  	"s f"     '(consult-find                    :which-key "Search files in dir")
+  	"s g"     '(consult-grep                    :which-key "Search with grep")
+  	"s m"     '(consult-info                    :which-key "Search in manuals")
+  	"s l"     '(consult-line                    :which-key "Search line"))
+
+    ;; Elfeed RSS
+    (mb/local-leader-keys
+  	"e"       '(:ignore t                       :which-key "Elfeed RSS")
+  	"e o"     '(elfeed                          :which-key "Elfeed")
+  	"e u"     '(elfeed-update                   :which-key "Update feeds")
+  	"e b"     '(elfeed-search-browse-url        :which-key "Open in browser"))
+    )
+
+  #+end_src
+
+** Evil / VIM motions everywhere
+Evil emulates the keybindings in Emacs and allows for extensive [[https://evil.readthedocs.io/en/latest/index.html][customization]]. Below is a pretty standard and simple configuration. Since =Evil= does not cover all the parts of Emacs, we use an extra package called [[https://github.com/emacs-evil/evil-collection][evil-collection]] which is a collection of additional keybindings for these parts that are not covered by Evil.
+
+#+begin_src emacs-lisp
+
+  (use-package evil
+    :init
+    (setq evil-want-integration t)
+    (setq evil-want-keybinding nil)
+    (setq evil-want-C-u-scroll t)
+    (setq evil-want-C-i-jump nil)
+    :config
+    (evil-mode 1)
+    (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
+    (define-key evil-insert-state-map (kbd "C-h") 'evil-delete-backward-char-and-join)
+
+    ;; Use visual line motions even outside of visual-line-mode buffers
+    (evil-global-set-key 'motion "j" 'evil-next-visual-line)
+    (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
+    ;; Same for up/down keys
+    (define-key evil-normal-state-map (kbd "<down>") 'evil-next-visual-line)
+    (define-key evil-normal-state-map (kbd "<up>") 'evil-previous-visual-line)
+
+    (evil-set-initial-state 'messages-buffer-mode 'normal)
+    (evil-set-initial-state 'dashboard-mode 'normal))
+
+  (use-package evil-collection
+    :after evil
+    :init
+    (setq evil-collection-company-use-tng nil)  ;; Is this a bug in evil-collection?
+    :config
+    (evil-collection-init))
+
+  ;; Using RETURN to follow links in Org/Evil
+  ;; Unmap keys in 'evil-maps if not done, (setq org-return-follows-link t) will not work
+  (with-eval-after-load 'evil-maps
+    (define-key evil-motion-state-map (kbd "SPC") nil)
+    (define-key evil-motion-state-map (kbd "RET") nil)
+    (define-key evil-motion-state-map (kbd "TAB") nil))
+  ;; Setting RETURN key in org-mode to follow links
+  (setq org-return-follows-link  t)
+#+end_src
+
+* COMPLETION FRAMEWORK
+
+** Corfu
+[[https://github.com/minad/corfu][Corfu]] is a lightweight Emacs package designed to enhance in-buffer completion. It provides a polished user interface for displaying completion candidates using child frames, and it integrates with Emacs's existing completion system. Corfu focuses on a clean, modern completion experience, aiming for performance and reliability while integrating with other completion-related packages like Cape. This part of my configuration was taken from [[https://github.com/garyo/emacs-config/blob/main/lisp/init-completion.el][this repo]].
+
+The MELPA recipe for Corfu bundles its extensions (such as =corfu-history=), so
+=corfu-history= below can be loaded with =:ensure nil=.
+
+#+begin_src emacs-lisp
+
+  ;;; In-buffer completion (using complete-at-point-functions): corfu
+
+  (use-package corfu
+    :ensure t
+    :demand t                      ; need this when using :bind or :hook
+    :config
+    (global-corfu-mode 1)
+    :custom
+    (corfu-auto t)
+    (corfu-auto-delay 0.2)         ;; Pop up sooner (was 0.75 -- a noticeable pause).
+    (corfu-auto-prefix 2)          ;; Trigger after 2 characters instead of the default 3.
+    (corfu-quit-no-match 'separator) ;; Keep the popup open while typing; only quit on a real dead-end.
+    (corfu-min-width 40)           ;; Minimum popup width in columns (default 15) -- wider box.
+    (corfu-max-width 140)          ;; Allow a wider box so right-hand annotations aren't clipped.
+    ;; Might want to customize corfu-sort-function
+    :bind
+    (("M-RET" . completion-at-point)
+     )
+    )
+
+  ;; corfu extension (in corfu/extensions/corfu-history.el); load after corfu
+  (use-package corfu-history
+    :ensure nil
+    :after corfu
+    :config
+    (corfu-history-mode)
+    (savehist-mode 1)
+    (add-to-list 'savehist-additional-variables 'corfu-history)
+    )
+
+  ;; corfu extension: show full documentation / signature for the highlighted
+  ;; candidate in a side popup, so long annotations don't need to fit on the
+  ;; candidate line. Toggle the popup manually with M-h while completing.
+  (use-package corfu-popupinfo
+    :ensure nil
+    :after corfu
+    :hook (corfu-mode . corfu-popupinfo-mode)
+    :custom
+    (corfu-popupinfo-delay '(0.5 . 0.2))   ;; (initial . subsequent) seconds before the popup shows.
+    (corfu-popupinfo-max-width 100)
+    (corfu-popupinfo-max-height 20))
+
+  (use-package corfu-terminal
+    :after corfu
+    :init
+    (defvar corfu-terminal-mode)
+    ;; TODO set this up, for use in non-GUI emacs
+    )
+
+  ;; Additional capf completion sources
+  (use-package cape
+    :config
+    ;; Note: order matters here. First one returning a result wins. Use
+    ;; ~add-hook~ to add these, since it sets the global (default) value
+    ;; of capf, instead of ~setq~ which would make it buffer-local
+    ;; (which would be bad): capf is automatically buffer-local when
+    ;; set.
+    ;; The buffer-local value, which takes precedence over these, calls these as long
+    ;; as it ends with ~t~.
+    (add-hook 'completion-at-point-functions #'cape-history)
+    (add-hook 'completion-at-point-functions #'cape-file)
+    (add-hook 'completion-at-point-functions #'cape-keyword)
+    (add-hook 'completion-at-point-functions #'cape-dabbrev)
+    (message (format "Loading my capf extensions: %s" completion-at-point-functions))
+    )
+
+  ;; Nice icons for corfu popups
+  (use-package kind-icon
+    :after corfu
+    :custom
+    (kind-icon-default-face 'corfu-default)   ;; Derive the icon background from the popup face.
+    :config
+    ;; The default style renders icons at the full line height (:height 1.0
+    ;; :scale 1.0), which overflows the popup. Shrink them so they line up with
+    ;; the text. Lower :height further if they are still too big, raise it if
+    ;; they end up too small.
+    (setq kind-icon-default-style
+          '(:padding 0 :stroke 0 :margin 0 :radius 0 :height 0.4 :scale 0.85))
+    (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+
+#+end_src
+
+** Vertico
+Vertico enhances the completion experience in Emacs by providing a vertical selection interface for both buffer and minibuffer completions. Unlike traditional minibuffer completion, which displays candidates in a horizontal format, Vertico presents candidates in a vertical list, making it easier to browse and select from multiple options.
+
+In buffer completion, `switch-to-buffer' allows you to select from open buffers. Vertico streamlines this process by displaying the buffer list in a way that improves visibility and accessibility. This is particularly useful when you have many buffers open, allowing you to quickly find the one you need.
+
+In minibuffer completion, such as when entering commands or file paths, Vertico helps by showing a dynamic list of potential completions, making it easier to choose the correct one without typing out the entire string.
+
+#+begin_src emacs-lisp
+
+  (use-package vertico
+    :demand t
+    :init (vertico-mode)           ;; Enable vertico after Emacs has initialized.
+    :custom
+    (vertico-count 10)                    ;; Number of candidates to display in the completion list.
+    (vertico-resize nil)                  ;; Disable resizing of the vertico minibuffer.
+    (vertico-cycle nil)                   ;; Do not cycle through candidates when reaching the end of the list.
+    :config
+    ;; Customize the display of the current candidate in the completion list.
+    ;; This will prefix the current candidate with “» ” to make it stand out.
+    ;; Reference: https://github.com/minad/vertico/wiki#prefix-current-candidate-with-arrow
+    (advice-add #'vertico--format-candidate :around
+                (lambda (orig cand prefix suffix index _start)
+                  (setq cand (funcall orig cand prefix suffix index _start))
+                  (concat
+                   (if (= vertico--index index)
+                       (propertize "» " 'face '(:foreground "#80adf0" :weight bold))
+                     "  ")
+                   cand))))
+
+#+end_src
+
+** Orderless
+Orderless enhances completion in Emacs by allowing flexible pattern matching. It works seamlessly with Vertico, enabling you to use partial strings and regular expressions to find files, buffers, and commands more efficiently. This combination provides a powerful and customizable completion experience.
+
+#+begin_src emacs-lisp
+
+  (use-package orderless
+    :ensure t
+    :defer t                                    ;; Load Orderless on demand.
+    :after vertico                              ;; Ensure Vertico is loaded before Orderless.
+    :init
+    (setq completion-styles '(orderless basic)  ;; Set the completion styles.
+          completion-category-defaults nil      ;; Clear default category settings.
+          completion-category-overrides '((file (styles partial-completion))))) ;; Customize file completion styles.
+
+#+end_src
+
+** Marginalia
+Marginalia enhances the completion experience in Emacs by adding additional context to the completion candidates. This includes helpful annotations such as documentation and other relevant information, making it easier to choose the right option.
+
+#+begin_src emacs-lisp
+
+  (use-package marginalia
+    :demand t
+    :init (marginalia-mode))
+
+#+end_src
+
+** Embark
+Embark provides a powerful contextual action menu for Emacs, allowing you to perform various operations on completion candidates and other items. It extends the capabilities of completion frameworks by offering direct
+actions on the candidates.
+
+Just `<leader> .' over any text, explore it :)
+
+Embark-Consult provides a bridge between Embark and Consult, ensuring that Consult commands, like previews, are available when using Embark.
+
+#+begin_src emacs-lisp
+
+  (use-package embark
+    :ensure t
+    :defer t)
+
+  (use-package embark-consult
+    :ensure t
+    :after (embark consult)   ;; Load once both are present; silences the "should be installed" warning.
+    :hook
+    (embark-collect-mode . consult-preview-at-point-mode)) ;; Enable preview in Embark collect mode.
+
+#+end_src
+
+** Consult
+[[https://github.com/minad/consult][Consult]] provides a host of practical, search- and navigation-oriented commands
+based on the Emacs completion function =completing-read=. Many of the leader-key
+bindings above (=consult-buffer=, =consult-line=, =consult-grep=,
+=consult-ripgrep=, =consult-recent-file=, =consult-find=, =consult-info=) come
+from this package, so we declare it explicitly here.
+
+#+begin_src emacs-lisp
+
+  (use-package consult
+    :ensure t
+    :defer t)
+
+#+end_src
+
+* ORG
+** General config
+
+#+begin_src emacs-lisp
+
+    (use-package org
+      :ensure nil
+      :config
+      (setq org-startup-folded 'content
+    		org-hide-emphasis-markers t
+    		org-log-into-drawer t
+    		;; org-log-done 'time
+    		org-log-redeadline 'time
+    		org-log-reschedule 'time	
+    		org-directory "~/org"
+    		org-default-notes-file "~/org/inbox.org"
+    		org-agenda-files (list "~/org/todo.org"
+  							         "~/org/Calendar/werk-agenda.org"))
+      ;; Disable Corfu's automatic completion popup in Org buffers. Manual
+      ;; completion with M-RET (completion-at-point) still works on demand.
+      (add-hook 'org-mode-hook (lambda () (setq-local corfu-auto nil))))
+
+#+end_src
+      
+** Enabling Table of Contents
+
+#+begin_src emacs-lisp
+
+  (use-package toc-org
+    :commands toc-org-enable
+    :init (add-hook 'org-mode-hook 'toc-org-enable))
+#+end_src
+
+** Source Code Block Tag Expansion
+Org-tempo is not a separate package but a module within org that can be enabled.  Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.  Other expansions available include:
+
+| Typing the below + TAB | Expands to ...                          |
+|------------------------+-----------------------------------------|
+| <a                     | '#+BEGIN_EXPORT ascii' … '#+END_EXPORT  |
+| <c                     | '#+BEGIN_CENTER' … '#+END_CENTER'       |
+| <C                     | '#+BEGIN_COMMENT' … '#+END_COMMENT'     |
+| <e                     | '#+BEGIN_EXAMPLE' … '#+END_EXAMPLE'     |
+| <E                     | '#+BEGIN_EXPORT' … '#+END_EXPORT'       |
+| <h                     | '#+BEGIN_EXPORT html' … '#+END_EXPORT'  |
+| <l                     | '#+BEGIN_EXPORT latex' … '#+END_EXPORT' |
+| <q                     | '#+BEGIN_QUOTE' … '#+END_QUOTE'         |
+| <s                     | '#+BEGIN_SRC' … '#+END_SRC'             |
+| <v                     | '#+BEGIN_VERSE' … '#+END_VERSE'         |
+
+#+begin_src emacs-lisp
+
+  (require 'org-tempo)
+
+  (add-to-list 'org-structure-template-alist '("sh" . "src sh"))
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("ni" . "src nix"))
+  (add-to-list 'org-structure-template-alist '("py" . "src python"))
+  (add-to-list 'org-structure-template-alist '("r"  . "src rust"))
+
+#+end_src
+
+** Appearance
+
+#+begin_src emacs-lisp
+
+  (use-package org-modern
+    :hook (org-mode . org-modern-mode))
+
+  (use-package org-appear
+    :hook (org-mode . org-appear-mode))
+
+  ;; Use Olivetti to center text and adjust line length
+  (use-package olivetti
+    :hook (org-mode . olivetti-mode)
+    :init
+    ;; Stel de gewenste breedte in (kan in aantal tekens of een percentage van het scherm)
+    (setq olivetti-body-width 110))
+
+#+end_src
+
+** Todo Keywords
+Set todo sequence
+
+#+begin_src emacs-lisp
+
+  (setq org-todo-keywords
+        '((sequence "TODO(t)" "|" "DONE(d!)")))
+
+#+end_src
+
+** Agenda
+Tell org where to look for certain documents.
+
+#+begin_src emacs-lisp
+
+
+  ;; Make sure everyday has a timegrid irrespective of appointments (require-timed)
+  (setq org-agenda-time-grid '((daily today weekly)
+                               (800 1000 1200 1400 1600 1800 2000)
+                               "......" "----------------"))
+
+#+end_src
+
+And use the keybindings as described in the [[https://orgmode.org/manual/Activation.html][manual]].
+
+#+begin_src emacs-lisp
+
+  (global-set-key (kbd "C-c l") #'org-store-link)
+  (global-set-key (kbd "C-c a") #'org-agenda)
+  (global-set-key (kbd "C-c c") #'org-capture)
+
+#+end_src
+
+Customize org agenda view (see [[https://www.labri.fr/perso/nrougier/GTD/index.html][Nicolas P. Rougier]])
+
+#+begin_src emacs-lisp
+
+  (setq org-agenda-custom-commands
+
+        '(("g" "Week - Get Things Done (GTD)"
+           ((agenda ""
+                    ((org-agenda-skip-function
+                      '(org-agenda-skip-entry-if 'deadline))
+                     (org-agenda-prefix-format "  %i %-18:c%?-12t% s")
+                     (org-deadline-warning-days 0)
+                     (org-agenda-time-grid '((daily today weekly require-timed)
+  										   (800 1000 1200 1400 1600 1800 2000)
+                                             "......" "----------------"))))
+            (todo "BUSY"
+                  ((org-agenda-skip-function
+                    '(org-agenda-skip-entry-if 'deadline))
+                   (org-agenda-prefix-format "  %i %-18:c [%e] ")
+                   (org-agenda-overriding-header "\nTasks\n")))
+            (todo "TODO"
+                  ((org-agenda-skip-function
+                    '(org-agenda-skip-entry-if 'deadline))
+                   (org-agenda-prefix-format "  %i %-18:c [%e] ")
+                   (org-agenda-overriding-header "\nTasks\n")))
+            ;; (tags-todo "inbox"
+            ;;            ((org-agenda-prefix-format "  %?-12t% s")
+            ;;             (org-agenda-overriding-header "\nInbox\n")))
+            (tags "CLOSED>=\"<today>\""
+                  ((org-agenda-overriding-header "\nCompleted today\n"))))
+        	 nil
+      	 ;; ("~/org/Calendar/weekagenda.html")
+  		 )
+          ("d" "Day - Get Things Done (GTD)"
+           ((agenda ""
+                    ((org-agenda-skip-function
+                      '(org-agenda-skip-entry-if 'deadline))
+                     (org-agenda-prefix-format "  %i %-18:c%?-12t% s")
+                     (org-agenda-span 1)
+                     (org-deadline-warning-days 0)
+                     (org-agenda-time-grid '((daily today weekly require-timed)
+  										   (800 1000 1200 1400 1600 1800 2000)
+  										   "......" "----------------"))))
+            (todo "BUSY"
+                  ((org-agenda-skip-function
+                    '(org-agenda-skip-entry-if 'deadline))
+                   (org-agenda-prefix-format "  %i %-18:c [%e] ")
+                   (org-agenda-overriding-header "\nTasks\n")))
+            (todo "TODO"
+                  ((org-agenda-skip-function
+                    '(org-agenda-skip-entry-if 'deadline))
+                   (org-agenda-prefix-format "  %i %-18:c [%e] ")
+                   (org-agenda-overriding-header "\nTasks\n")))
+            ;; (tags-todo "inbox"
+            ;;            ((org-agenda-prefix-format "  %?-12t% s")
+            ;;             (org-agenda-overriding-header "\nInbox\n")))
+            (tags "CLOSED>=\"<today>\""
+                  ((org-agenda-overriding-header "\nCompleted today\n"))))
+    		 nil
+  		 ;; ("~/org/Calendar/dagagenda.html")
+  		 )))
+
+  (use-package htmlize
+    :ensure t)
+
+#+end_src
+
+** Capture Templates
+
+#+begin_src emacs-lisp
+
+  (setq org-capture-templates
+        '(("n" "Persoonlijke Notitie" entry
+           (file "notes.org")
+           "* %?\nGecreëerd op: %U\n\n%i" :empty-lines 1)
+          ("t" "TODO Taak" entry
+           (file "todo.org")
+           "* TODO %?\nGecreëerd op: %U" :empty-lines 1)
+
+  		;; --- Werk Submenu ---
+  		("w" "Werk...") ; Dit definieert de hoofdgroep	
+  		("wt" "TODO Werk" entry
+  		 (file+headline "~/org/Calendar/werk-agenda.org" "Taken")
+  		 "* TODO %?\n")
+  		("wn" "Werkbegeleiding" entry
+  		 (file "~/org/werkbegeleiding.org") ; Pas het pad eventueel aan naar wens
+  		 "* %?\nGecreëerd op: %U\n\n%i" :empty-lines 1)
+  		;; --------------------
+  		
+  		("j" "Journal Entry" entry
+  		 (file+olp+datetree "~/org/journal.org")
+  		 "* %?\nEnter-time: %U\n"
+  		 :empty-lines 1)))
+
+		 #+end_src
+						   
+** Notes
+*** Denote
+[[https://protesilaos.com/emacs/denote][Denote]] is a simple, file-based note-taking system. Every note is a plain Org
+file whose name encodes a creation timestamp, the title and any keywords, e.g.
+=20260602T141500--meeting-notes__work_project.org=. There is no database to keep
+in sync (unlike org-roam): everything lives in the file names and the file
+contents, so notes stay portable and greppable.
+
+Notes are stored in =denote-directory= (here =~/org/=). Creating and
+opening notes is bound under the =SPC o= prefix (see the General section):
+=o n= new note, =o f= find/open, =o s= search note contents, =o i= insert a link
+to another note.
+
+ #+begin_src emacs-lisp :tangle no
+
+  (use-package denote
+    :ensure t
+    :hook (dired-mode . denote-dired-mode)   ;; Highlight Denote file names in Dired.
+    :custom
+    (denote-directory (expand-file-name "~/org/Notes")) ;; Where notes live.
+    (denote-file-type 'org)                                   ;; Write notes as Org files.
+    (denote-known-keywords '("emacs" "work" "personal" "project")) ;; Suggested tags.
+    (denote-prompts '(title keywords))                        ;; Ask for a title, then keywords.
+    (denote-date-prompt-use-org-read-date t)                  ;; Use the Org date picker when prompted.
+    (denote-rename-buffer-mode 1)                             ;; Rename buffer names of denote files
+    :config
+    ;; Make `C-c n' a handy global prefix for the most common Denote commands,
+    ;; in addition to the SPC o ... leader bindings.
+    (with-eval-after-load 'org
+      (define-key org-mode-map (kbd "C-c n l") #'denote-link)
+      (define-key org-mode-map (kbd "C-c n b") #'denote-backlinks)))
+
+  ;; Route Denote's find/grep through Consult so you get live narrowing and
+  ;; preview. Provides `consult-denote-find' and `consult-denote-grep'.
+  (use-package consult-denote
+    :ensure t
+    :after (consult denote)
+    :config
+    (consult-denote-mode 1))
+
+#+end_src
+
+*** Org-node
+Replaced Denote with org-node
+
+#+begin_src emacs-lisp
+  
+  (use-package org-mem
+    :config
+    (org-mem-updater-mode))
+
+  (use-package org-node
+    :init
+    ;; Optional key bindings
+    ;; Tip: Try changing these to just "M-o"!
+    (keymap-global-set "C-c o" org-node-global-prefix-map)
+    (with-eval-after-load 'org
+      (keymap-set org-mode-map "C-c o" org-node-org-prefix-map))
+    :config
+    (org-node-cache-mode))
+
+#+end_src
+
+** Org Gcal Calendar
+
+#+begin_src emacs-lisp
+
+  (use-package org-gcal
+    :init
+    ;; org-gcal-client-id / org-gcal-client-secret live in secrets.el,
+    ;; which is not tracked in git.
+    (load (expand-file-name "secrets.el" user-emacs-directory) 'noerror)
+    (setq org-gcal-local-timezone "Europe/Amsterdam")
+    :config
+    (setq org-gcal-fetch-file-alist '(("mbroeders@gmail.com" . "~/org/Calendar/prive.org")
+  									("family08361847864604318057@group.calendar.google.com" . "~/org/Calendar/familie.org"))))
+
+  (add-to-list 'org-agenda-files "~/org/Calendar/prive.org")
+  (add-to-list 'org-agenda-files "~/org/Calendar/familie.org")
+
+  ;; Synchroniseer automatisch wanneer je de org-agenda opent
+  ;; Heb ik uitgezet want bij elke agenda actie wordt er opnieuw georganiseerd
+  ;; Beter dit handmatig te doen via org-gcal-fetch
+  ;; (add-hook 'org-agenda-mode-hook #'org-gcal-fetch)
+
+#+end_src
+
+* PROGRAMMING
+** LSP (Eglot)
+Emacs ships with a built-in LSP client, =eglot=, which is fully integrated with
+the native Emacs facilities: completion through =completion-at-point= (so it
+works directly with Corfu, with no extra completion backend), diagnostics
+through =flymake=, and documentation through =eldoc=. Because it is built in, it
+needs no installation (=:ensure nil=) and stays compatible with whatever Emacs
+version you run.
+
+NOTE: Eglot does not bundle the language servers themselves — install those with
+your system package manager or =npm=:
+- Bash:       =bash-language-server=
+- Python:     =python-lsp-server= (pylsp) or =pyright=
+- JS/TS/TSX:  =typescript-language-server=
+  Eglot's docs: https://www.gnu.org/software/emacs/manual/html_mono/eglot.html
+
+  #+begin_src emacs-lisp
+
+    (use-package eglot
+      :ensure nil          ;; Built-in since Emacs 29.
+      :defer t
+      :hook (;; Start eglot automatically in these major modes.
+    		 (bash-ts-mode      . eglot-ensure)   ;; Bash
+    		 (python-mode       . eglot-ensure)   ;; Python
+    		 (python-ts-mode    . eglot-ensure)   ;; Python (tree-sitter)
+    		 (typescript-ts-mode . eglot-ensure)  ;; TypeScript
+    		 (tsx-ts-mode       . eglot-ensure)   ;; TSX
+    		 (js-mode           . eglot-ensure)   ;; JavaScript
+    		 (js-ts-mode        . eglot-ensure))  ;; JavaScript (tree-sitter)
+      :custom
+      (eglot-autoshutdown t)            ;; Shut a server down when its last buffer is killed.
+      (eglot-events-buffer-size 0)      ;; Don't log LSP traffic (faster, less memory).
+      (eglot-extend-to-xref t)          ;; Allow xref to jump into out-of-project files.
+      :config
+      ;; Don't let eglot take over the echo area with multi-line docs; keep eldoc
+      ;; concise and let `mb/eglot-describe-and-jump' pop the full buffer on demand.
+      (setq eldoc-echo-area-use-multiline-p 1))
+
+    (defun mb/eglot-describe-and-jump ()
+      "Show hover documentation in the *eldoc* buffer and switch to it."
+      (interactive)
+      (eldoc-doc-buffer t))
+
+  #+end_src
+
+*** Tailwind CSS (optional)
+Unlike =lsp-mode=, eglot runs a single language server per buffer, so it cannot
+drive the Tailwind server *and* =typescript-language-server= in the same TSX
+buffer simultaneously. If you want Tailwind class completion in your pure
+template/CSS buffers (where there is no competing server), install
+=tailwindcss-language-server= and add the following to the =:config= block of
+the =eglot= declaration above:
+
+#+begin_example emacs-lisp
+(add-to-list 'eglot-server-programs
+             '((css-mode css-ts-mode web-mode html-mode)
+               . ("tailwindcss-language-server" "--stdio")))
+#+end_example
+
+** Documentation
+Eldoc provides helpful inline documentation for functions and variables in the minibuffer, enhancing the development experience. It can be particularly useful in programming modes, as it helps you understand the context of functions as you type. This package is built-in, so there's no need to fetch it separately. The following line enables Eldoc globally for all buffers.
+
+#+begin_src emacs-lisp
+
+  (use-package eldoc
+    :ensure nil          ;; This is built-in, no need to fetch it.
+    :init
+    (global-eldoc-mode))
+
+#+end_src
+
+** Syntax
+**** Flymake
+Flymake is an on-the-fly syntax checking extension that provides real-time feedback about errors and warnings in your code as you write. This can greatly enhance your coding experience by catching issues early. The configuration below activates Flymake mode in programming buffers.
+
+#+begin_src emacs-lisp
+
+  (use-package flymake
+    :ensure nil          ;; This is built-in, no need to fetch it.
+    :defer t
+    :hook (prog-mode . flymake-mode)
+    :custom
+    (flymake-margin-indicators-string
+     '((error "!»" compilation-error) (warning "»" compilation-warning)
+       (note "»" compilation-info))))
+
+#+end_src
+
+**** Treesitter-auto
+Treesit-auto simplifies the use of Tree-sitter grammars in Emacs, providing automatic installation and mode association for various programming languages. This enhances syntax highlighting and code parsing capabilities, making it easier to work with modern programming languages.
+
+#+begin_src emacs-lisp
+
+  (use-package treesit-auto
+    :ensure t
+    :after emacs
+    :custom
+    (treesit-auto-install 'prompt)
+    :config
+    (treesit-auto-add-to-auto-mode-alist 'all)
+    (global-treesit-auto-mode t))
+
+#+end_src
+
+** Languages
+*** Markdown
+Markdown Mode provides support for editing Markdown files in Emacs, enabling features like syntax highlighting, previews, and more. It’s particularly useful for README files, as it can be set to use GitHub Flavored Markdown for enhanced compatibility.
+
+#+begin_src emacs-lisp
+
+  (use-package markdown-mode
+    :defer t
+    :ensure t
+    :mode ("README\\.md\\'" . gfm-mode)            ;; Use gfm-mode for README.md files.
+    :init (setq markdown-command "multimarkdown")) ;; Set the Markdown processing command.
+
+  (add-hook 'text-mode-hook 'visual-line-mode)
+
+#+end_src
+
+*** NodeJS
+The `add-node-modules-path' package ensures that Emacs uses the local `node_modules/.bin' for a project rather than globally installed binaries. This is essential in JavaScript/TypeScript projects where different versions
+of tools like `eslint' and `typescript-language-server' might be needed per project.
+
+This setup helps prevent conflicts between global and local versions of Node.js tools and ensures consistency across different environments.
+
+Example in the wild: This is an example of a real-world issue often faced by developers using modern tech stacks. When working on multiple projects with different dependencies, Emacs must use the correct local versions instead of relying on globally installed packages. This configuration ensures that the environment is accurate and project-specific tools are properly utilized.
+
+#+begin_src emacs-lisp
+
+  (use-package add-node-modules-path
+    :ensure t
+    :defer t
+    :custom
+    ;; Makes sure you are using the local bin for your
+    ;; node project. Local eslint, typescript server...
+    (eval-after-load 'typescript-ts-mode
+      '(add-hook 'typescript-ts-mode-hook #'add-node-modules-path))
+    (eval-after-load 'tsx-ts-mode
+      '(add-hook 'tsx-ts-mode-hook #'add-node-modules-path))
+    (eval-after-load 'typescriptreact-mode
+      '(add-hook 'typescriptreact-mode-hook #'add-node-modules-path))
+    (eval-after-load 'js-mode
+      '(add-hook 'js-mode-hook #'add-node-modules-path)))
+
+#+end_src
+
+*** Python
+Python is handled by =eglot= (configured in the LSP section above) together with
+Corfu for in-buffer completion and Flymake for diagnostics, so no dedicated
+Python package such as Elpy is needed — Elpy carried its own Company-based
+completion UI, which would conflict with Corfu.
+
+Just install a Python language server and =eglot= will pick it up automatically
+when you open a =.py= file:
+
+#+begin_example
+pip install "python-lsp-server[all]"   # provides the `pylsp' executable
+# --- or ---
+npm install -g pyright                  # provides the `pyright' executable
+#+end_example
+
+** Version Control
+`magit' is a powerful Git interface for Emacs that provides a complete set of features to manage Git repositories. With its intuitive interface, you can easily stage, commit, branch, merge, and perform other Git
+operations directly from Emacs. Magit’s powerful UI allows for a seamless workflow, enabling you to visualize your repository's history and manage changes efficiently.
+
+In the Neovim ecosystem, similar functionality is provided by plugins such as `fugitive.vim', which offers a robust Git integration with commands that allow you to perform Git operations directly within Neovim. Another popular option is `neogit', which provides a more modern and user-friendly interface for Git commands in Neovim, leveraging features like diff views and staging changes in a visual format. Both of these plugins aim to replicate and extend the powerful capabilities that Magit offers in Emacs.
+
+#+begin_src emacs-lisp
+
+  (use-package transient)
+
+  (use-package magit
+    :after transient
+    :defer t)
+
+#+end_src
+
+** Project Management
+
+#+begin_src emacs-lisp
+
+  (use-package projectile
+    :config (projectile-mode)
+    :demand t
+    :init
+    (setq projectile-project-search-path (list "~/Development/python/projects"
+                                               "~/Development/python/exercises"
+                                               "~/.dotfiles")))
+
+#+end_src
+
+* APPLICATIONS
+** Undo Tree
+The `undo-tree' package provides an advanced and visual way to manage undo history. It allows you to navigate and visualize your undo history as a tree structure, making it easier to manage changes in your buffers.
+
+#+begin_src emacs-lisp
+
+  (use-package undo-tree
+    :demand t
+    :init
+    (setq undo-tree-visualizer-timestamps t
+  		undo-tree-visualizer-diff t
+  		;; Increase undo limits to avoid losing history due to Emacs' garbage collection.
+  		;; These values can be adjusted based on your needs.
+  		;; 10X bump of the undo limits to avoid issues with premature
+  		;; Emacs GC which truncates the undo history very aggressively.
+  		undo-limit 800000                     ;; Limit for undo entries.
+  		undo-strong-limit 12000000            ;; Strong limit for undo entries.
+  		undo-outer-limit 120000000)           ;; Outer limit for undo entries.
+    :config
+    (global-undo-tree-mode 1)
+    ;; Set the directory where `undo-tree' will save its history files.
+    ;; This keeps undo history across sessions, stored in a cache directory.
+    (setq undo-tree-history-directory-alist '(("." . "~/.emacs.d/.cache/undo"))))
+
+#+end_src
+
+** Elfeed
+An RSS newsfeed reader for Emacs.  Move through the articles with 'j/k'.  Move through the stories with 'CTRL j/k' when in other frame.
+
+#+begin_src emacs-lisp
+  (use-package elfeed
+    :config
+    (setq elfeed-search-feed-face ":foreground #ffffff :weight bold"
+          elfeed-feeds (quote
+                        (("https://www.reddit.com/r/linux.rss" reddit linux)
+                         ("https://www.reddit.com/r/emacs.rss" reddit emacs)
+                         ("https://opensource.com/feed" opensource linux)
+  					   ("https://taonaw.com/categories/emacs-org-mode/feed.xml" taonow blog)
+  					   ))))
+
+  (use-package elfeed-goodies
+    :init
+    (elfeed-goodies/setup)
+    :config
+    (setq elfeed-goodies/entry-pane-size 0.5))
+
+#+end_src
