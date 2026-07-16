@@ -956,13 +956,11 @@ Replaced Denote with org-node
 
   (use-package org-gcal
     :init
-    ;; org-gcal-client-id / org-gcal-client-secret live in secrets.el,
+    ;; org-gcal-client-id / org-gcal-client-secret / org-gcal-fetch-file-alist
+    ;; (which contains personal email + calendar ids) live in secrets.el,
     ;; which is not tracked in git.
     (load (expand-file-name "secrets.el" user-emacs-directory) 'noerror)
-    (setq org-gcal-local-timezone "Europe/Amsterdam")
-    :config
-    (setq org-gcal-fetch-file-alist '(("mbroeders@gmail.com" . "~/org/Calendar/prive.org")
-  									("family08361847864604318057@group.calendar.google.com" . "~/org/Calendar/familie.org"))))
+    (setq org-gcal-local-timezone "Europe/Amsterdam"))
 
   (add-to-list 'org-agenda-files "~/org/Calendar/prive.org")
   (add-to-list 'org-agenda-files "~/org/Calendar/familie.org")
