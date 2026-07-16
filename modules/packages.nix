@@ -8,6 +8,7 @@
     wget
     curl
     tree
+    gh
 
     # Editors
     vim
