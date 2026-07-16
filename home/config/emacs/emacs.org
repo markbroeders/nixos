@@ -963,7 +963,34 @@ Replaced Denote with org-node
     ;; (which contains personal email + calendar ids) live in secrets.el,
     ;; which is not tracked in git.
     (load (expand-file-name "secrets.el" user-emacs-directory) 'noerror)
-    (setq org-gcal-local-timezone "Europe/Amsterdam"))
+    (setq org-gcal-local-timezone "Europe/Amsterdam")
+    :config
+    ;; oauth2-auto always calls (plstore-put plstore id nil plist), i.e. the
+    ;; token plist is always passed as *secret* data. plstore then always
+    ;; GPG-encrypts it (falling back to symmetric/passphrase encryption
+    ;; since we have no GPG key), which is why every reboot forces a fresh
+    ;; passphrase prompt: the gpg-agent cache that "remember" relies on
+    ;; lives only in the agent process and dies with it.
+    ;;
+    ;; Swap plstore-put's `keys' and `secret-keys' arguments for the
+    ;; duration of oauth2-auto's write, so the token is stored as *public*
+    ;; plist data instead. plstore-save then never needs to decrypt or
+    ;; encrypt anything for this entry, so no passphrase is ever asked.
+    ;; The token itself is a revocable OAuth refresh token, not a
+    ;; long-term secret, so plaintext-on-disk is an acceptable trade;
+    ;; file permissions are tightened below to compensate.
+    (defun mb/plstore-put-as-public-args (args)
+      (pcase-let ((`(,plstore ,name ,keys ,secret-keys) args))
+        (list plstore name secret-keys keys)))
+
+    (define-advice oauth2-auto--plstore-write
+        (:around (orig-fn &rest args) mb/skip-plstore-encryption)
+      (advice-add 'plstore-put :filter-args #'mb/plstore-put-as-public-args)
+      (unwind-protect
+          (apply orig-fn args)
+        (advice-remove 'plstore-put #'mb/plstore-put-as-public-args)
+        (when (file-exists-p oauth2-auto-plstore)
+          (set-file-modes oauth2-auto-plstore #o600)))))
 
   (add-to-list 'org-agenda-files "~/org/Calendar/prive.org")
   (add-to-list 'org-agenda-files "~/org/Calendar/familie.org")
