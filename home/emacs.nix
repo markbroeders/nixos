@@ -8,6 +8,14 @@ let
   emacsConfigDir = "${config.home.homeDirectory}/nixos/home/config/emacs";
 in
 {
+  # Auto-start an Emacs daemon with the graphical session (GNOME) so
+  # `emacsclient` always has a server to attach to, without a manual
+  # `M-x server-start` after every reboot.
+  services.emacs = {
+    enable = true;
+    startWithUserSession = "graphical";
+  };
+
   # Emacs config lives here in the repo and is symlinked into ~/.emacs.d so
   # it's tracked in git. secrets.el, the tangled emacs.el, and caches
   # (elpa, eln-cache, etc.) stay untracked local files - see

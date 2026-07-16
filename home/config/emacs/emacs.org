@@ -151,6 +151,7 @@ Here are some sane default settings, read the comments to see what they all mean
     (truncate-lines t)                              ;; Enable line truncation to avoid wrapping long lines.
     (use-dialog-box nil)                            ;; Disable dialog boxes in favor of minibuffer prompts.
     (use-short-answers t)                           ;; Use short answers in prompts for quicker responses (y instead of yes)
+    (vc-follow-symlinks t)                          ;; Follow symlinked files (e.g. emacs.org) into their git repo without asking every time.
     (warning-minimum-level :warning)                ;; Surface real warnings (raise to :emergency to silence them).
     (split-width-threshold 120)                     ;; Make new windows open to the right
 
@@ -935,6 +936,8 @@ Replaced Denote with org-node
 #+begin_src emacs-lisp
   
   (use-package org-mem
+    :custom
+    (org-mem-watch-dirs (list "~/org/Notes"))
     :config
     (org-mem-updater-mode))
 
