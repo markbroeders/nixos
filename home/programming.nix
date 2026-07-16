@@ -8,6 +8,9 @@
       name = "Mark Broeders";
       email = "mail@markbroeders.nl";
     };
+    # Use gh's stored token for github.com HTTPS auth instead of falling
+    # back to an interactive askpass prompt.
+    settings.credential."https://github.com".helper = "!${pkgs.gh}/bin/gh auth git-credential";
   };
 
   # Auto-load per-project nix dev shells (see ~/nixos/templates/python)
