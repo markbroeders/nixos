@@ -39,6 +39,17 @@
   # Enable networking
   networking.networkmanager.enable = true;
 
+  # Work around an iwlwifi (Intel AX211) resume race: right after waking
+  # from suspend, the firmware is still reinitializing (regdom/RFIm) when
+  # wpa_supplicant's first reconnect attempt goes out, causing 1-2 failed
+  # handshakes before it self-heals. Force a clean reconnect after the
+  # firmware has had time to settle instead of waiting out the retry backoff.
+  powerManagement.resumeCommands = ''
+    ${pkgs.networkmanager}/bin/nmcli device disconnect wlo1 || true
+    sleep 5
+    ${pkgs.networkmanager}/bin/nmcli device connect wlo1 || true
+  '';
+
   # Set your time zone.
   time.timeZone = "Europe/Amsterdam";
 

@@ -24,7 +24,7 @@
     # obsidian
     zotero
     google-chrome
-    protonvpn-gui
+    proton-vpn
 
     # Libraries
     hplip
