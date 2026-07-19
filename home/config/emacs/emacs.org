@@ -407,10 +407,10 @@ it with =:ensure nil=.
   	"h v"     '(describe-variable               :which-key "Describe variable"))
 
     ;; Journal
-    (mb/leader-key-def 
-  	"j"  '(:ignore t :which-key "journal"                             :which-key "Journal")
-  	"jj" '((lambda () (interactive) (org-capture nil "j"))            :which-key "New journal entry")
-  	"jo" '((lambda () (interactive) (find-file "~/org/journal.org"))  :which-key "Open journal"))
+    (mb/leader-key-def
+  	"j"  '(:ignore t :which-key "journal"                              :which-key "Journal")
+  	"jj" '(mb/open-daily-note                                          :which-key "Open today's note")
+  	"jo" '((lambda () (interactive) (find-file "~/org/journal.org"))   :which-key "Open journal archive"))
 
     ;; Org
     (mb/leader-key-def
@@ -937,7 +937,7 @@ Replaced Denote with org-node
   
   (use-package org-mem
     :custom
-    (org-mem-watch-dirs (list "~/org/Notes"))
+    (org-mem-watch-dirs (list "~/org/Notes" "~/org/Daily"))
     :config
     (org-mem-updater-mode))
 
@@ -999,6 +999,64 @@ Replaced Denote with org-node
   ;; Heb ik uitgezet want bij elke agenda actie wordt er opnieuw georganiseerd
   ;; Beter dit handmatig te doen via org-gcal-fetch
   ;; (add-hook 'org-agenda-mode-hook #'org-gcal-fetch)
+
+#+end_src
+
+** Daily Notes
+
+Obsidian-style "today's note": one file per day under =~/org/Daily/=,
+indexed by org-node like any other note, with a Todo section, a
+one-time snapshot of that day's gcal-synced calendar events, and a
+Journal section.
+
+#+begin_src emacs-lisp
+
+  (defun mb/daily-note-directory ()
+    (expand-file-name "Daily" org-directory))
+
+  (defun mb/daily-note-file (&optional date)
+    (expand-file-name (format-time-string "%Y-%m-%d.org" date)
+                       (mb/daily-note-directory)))
+
+  (defun mb/daily-note--gcal-snapshot ()
+    "Return today's gcal-synced calendar entries as bullet lines."
+    (require 'org-agenda)
+    (require 'calendar)
+    (let* ((today (calendar-current-date))
+           (cal-files (seq-filter (lambda (f) (string-match-p "/Calendar/" f))
+                                   org-agenda-files))
+           (lines (mapcan (lambda (f) (org-agenda-get-day-entries f today))
+                           cal-files)))
+      (if lines
+          (mapconcat (lambda (l) (concat "- " (string-trim (substring-no-properties l)) "\n"))
+                      lines "")
+        "- (No calendar items today)\n")))
+
+  (defun mb/daily-note-ensure ()
+    "Create today's daily note with a skeleton if it doesn't exist yet.
+  Idempotent; returns the file path either way."
+    (let ((dir (mb/daily-note-directory))
+          (file (mb/daily-note-file)))
+      (unless (file-directory-p dir)
+        (make-directory dir t))
+      (unless (file-exists-p file)
+        (with-temp-buffer
+          (insert (format "#+TITLE: %s\n#+FILETAGS: :daily:\n\n" (format-time-string "%Y-%m-%d")))
+          (insert "* Todo\n\n")
+          (insert "* Calendar\n")
+          (insert (mb/daily-note--gcal-snapshot))
+          (insert "\n* Journal\n\n")
+          (write-region (point-min) (point-max) file)))
+      file))
+
+  (defun mb/open-daily-note ()
+    "Open (creating if necessary) today's daily note, jumping to the Journal section."
+    (interactive)
+    (find-file (mb/daily-note-ensure))
+    (goto-char (point-min))
+    (if (re-search-forward "^\\* Journal\\s-*$" nil t)
+        (progn (end-of-line) (newline))
+      (goto-char (point-max))))
 
 #+end_src
 
