@@ -410,6 +410,8 @@ it with =:ensure nil=.
     (mb/leader-key-def
   	"j"  '(:ignore t :which-key "journal"                              :which-key "Journal")
   	"jj" '(mb/open-daily-note                                          :which-key "Open today's note")
+  	"jy" '(mb/open-yesterday-note                                      :which-key "Open yesterday's note")
+  	"jt" '(mb/open-tomorrow-note                                       :which-key "Open tomorrow's note")
   	"jo" '((lambda () (interactive) (find-file "~/org/journal.org"))   :which-key "Open journal archive"))
 
     ;; Org
@@ -422,7 +424,7 @@ it with =:ensure nil=.
   	;; "o n"     '(org-node-global-prefix-map      :which-key "org-node menu")
   	"o f"     '(org-node-find                   :which-key "Find/open note")
   	;; "o s"     '(consult-denote-grep             :which-key "Search notes")
-  	"o i"     '(org-node-insert                 :which-key "Insert note link"))
+  	"o i"     '(org-node-insert-link             :which-key "Insert note link"))
 
     (mb/leader-key-def
   	"p"   '(:ignore t                           :which-key "Projectile")
@@ -1004,59 +1006,78 @@ Replaced Denote with org-node
 
 ** Daily Notes
 
-Obsidian-style "today's note": one file per day under =~/org/Daily/=,
-indexed by org-node like any other note, with a Todo section, a
-one-time snapshot of that day's gcal-synced calendar events, and a
-Journal section.
+Obsidian-style "today's note": one file per day under =~/org/Daily/=, with
+a Todo section, a one-time snapshot of that day's gcal-synced calendar
+events, and a Journal section. Unlike other notes, daily notes have no
+=:ID:= property, so they're deliberately left out of org-node's index
+(=org-node-find=, =org-node-insert-link=) to avoid an ever-growing list of
+dated entries there. Yesterday's/tomorrow's note is reachable the same way
+as today's, via ~mb/open-daily-note~ with a day offset.
 
 #+begin_src emacs-lisp
 
   (defun mb/daily-note-directory ()
     (expand-file-name "Daily" org-directory))
 
-  (defun mb/daily-note-file (&optional date)
-    (expand-file-name (format-time-string "%Y-%m-%d.org" date)
+  (defun mb/daily-note--time (&optional day-offset)
+    "Return the time value DAY-OFFSET days from today (default: today)."
+    (time-add (current-time) (* (or day-offset 0) 86400)))
+
+  (defun mb/daily-note-file (&optional day-offset)
+    (expand-file-name (format-time-string "%Y-%m-%d.org" (mb/daily-note--time day-offset))
                        (mb/daily-note-directory)))
 
-  (defun mb/daily-note--gcal-snapshot ()
-    "Return today's gcal-synced calendar entries as bullet lines."
+  (defun mb/daily-note--gcal-snapshot (&optional day-offset)
+    "Return DAY-OFFSET's (default: today's) gcal-synced calendar entries as bullet lines."
     (require 'org-agenda)
     (require 'calendar)
-    (let* ((today (calendar-current-date))
+    (let* ((date (calendar-current-date day-offset))
            (cal-files (seq-filter (lambda (f) (string-match-p "/Calendar/" f))
                                    org-agenda-files))
-           (lines (mapcan (lambda (f) (org-agenda-get-day-entries f today))
+           (lines (mapcan (lambda (f) (org-agenda-get-day-entries f date))
                            cal-files)))
       (if lines
           (mapconcat (lambda (l) (concat "- " (string-trim (substring-no-properties l)) "\n"))
                       lines "")
         "- (No calendar items today)\n")))
 
-  (defun mb/daily-note-ensure ()
-    "Create today's daily note with a skeleton if it doesn't exist yet.
-  Idempotent; returns the file path either way."
+  (defun mb/daily-note-ensure (&optional day-offset)
+    "Create the daily note DAY-OFFSET days from today (default: today) with a
+  skeleton if it doesn't exist yet. Idempotent; returns the file path either way."
     (let ((dir (mb/daily-note-directory))
-          (file (mb/daily-note-file)))
+          (file (mb/daily-note-file day-offset)))
       (unless (file-directory-p dir)
         (make-directory dir t))
       (unless (file-exists-p file)
         (with-temp-buffer
-          (insert (format "#+TITLE: %s\n#+FILETAGS: :daily:\n\n" (format-time-string "%Y-%m-%d")))
+          (insert (format "#+TITLE: %s\n#+FILETAGS: :daily:\n\n"
+                           (format-time-string "%Y-%m-%d" (mb/daily-note--time day-offset))))
           (insert "* Todo\n\n")
           (insert "* Calendar\n")
-          (insert (mb/daily-note--gcal-snapshot))
+          (insert (mb/daily-note--gcal-snapshot day-offset))
           (insert "\n* Journal\n\n")
           (write-region (point-min) (point-max) file)))
       file))
 
-  (defun mb/open-daily-note ()
-    "Open (creating if necessary) today's daily note, jumping to the Journal section."
+  (defun mb/open-daily-note (&optional day-offset)
+    "Open (creating if necessary) the daily note DAY-OFFSET days from today
+  (default: today), jumping to the Journal section."
     (interactive)
-    (find-file (mb/daily-note-ensure))
+    (find-file (mb/daily-note-ensure day-offset))
     (goto-char (point-min))
     (if (re-search-forward "^\\* Journal\\s-*$" nil t)
         (progn (end-of-line) (newline))
       (goto-char (point-max))))
+
+  (defun mb/open-yesterday-note ()
+    "Open (creating if necessary) yesterday's daily note."
+    (interactive)
+    (mb/open-daily-note -1))
+
+  (defun mb/open-tomorrow-note ()
+    "Open (creating if necessary) tomorrow's daily note."
+    (interactive)
+    (mb/open-daily-note 1))
 
 #+end_src
 
