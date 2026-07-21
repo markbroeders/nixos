@@ -25,6 +25,7 @@
     zotero
     google-chrome
     proton-vpn
+    calibre
 
     # Libraries
     hplip

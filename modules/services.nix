@@ -41,4 +41,7 @@
       ExecStart = "${pkgs.bash}/bin/bash -c 'if [ -e /sys/class/power_supply/BAT0/charge_control_end_threshold ]; then echo 80 > /sys/class/power_supply/BAT0/charge_control_end_threshold; fi'";
     };
   };
+
+  # Connect devices via USB, needed for Calibre
+  services.udisks2.enable = true;
 }
